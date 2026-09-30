@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Edit Appointment</title>
+
+</head>
+
+<body>
+
+<h1>Edit Appointment</h1>
+
+{% if error %}
+
+    <p style="color: red;">
+        <strong>{{ error }}</strong>
+    </p>
+
+{% endif %}
+
+<form method="POST">
+
+    {% csrf_token %}
+
+
+    <!-- PATIENT -->
+
+    <label>
+        <strong>Patient:</strong>
+    </label>
+
+    <br>
+
+    <select name="patient" required>
+
+        {% for patient in patients %}
+
+            <option
+                value="{{ patient.id }}"
+                {% if patient.id == appointment.patient.id %}
+                    selected
+                {% endif %}
+            >
+
+                {{ patient.user.first_name }}
+                {{ patient.user.last_name }}
+
+                ({{ patient.user.username }})
+
+            </option>
+
+        {% endfor %}
+
+    </select>
+
+    <br><br>
+
+
+    <!-- DOCTOR -->
+
+    <label>
+        <strong>Doctor:</strong>
+    </label>
+
+    <br>
+
+    <select name="doctor" required>
+
+        {% for doctor in doctors %}
+
+            <option
+                value="{{ doctor.id }}"
+                {% if doctor.id == appointment.doctor.id %}
+                    selected
+                {% endif %}
+            >
+
+                Dr.
+                {{ doctor.user.first_name }}
+                {{ doctor.user.last_name }}
+
+                -
+                {{ doctor.specialization }}
+
+            </option>
+
+        {% endfor %}
+
+    </select>
+
+    <br><br>
+
+
+    <!-- DATE -->
+
+    <label>
+        <strong>Date:</strong>
+    </label>
+
+    <br>
+
+    <input
+        type="date"
+        name="appointment_date"
+        value="{{ appointment.appointment_date|date:'Y-m-d' }}"
+        required
+    >
+
+    <br><br>
+
+
+    <!-- TIME -->
+
+    <label>
+        <strong>Time:</strong>
+    </label>
+
+    <br>
+
+    <input
+        type="time"
+        name="appointment_time"
+        value="{{ appointment.appointment_time|time:'H:i' }}"
+        step="1800"
+        required
+    >
+
+    <br><br>
+
+
+    <!-- REASON -->
+
+    <label>
+        <strong>Reason:</strong>
+    </label>
+
+    <br>
+
+    <textarea
+        name="reason"
+        rows="5"
+        cols="40"
+    >{{ appointment.reason }}</textarea>
+
+    <br><br>
+
+
+    <!-- STATUS -->
+
+    <label>
+        <strong>Status:</strong>
+    </label>
+
+    <br>
+
+    <select name="status" required>
+
+        <option
+            value="Pending"
+            {% if appointment.status == "Pending" %}
+                selected
+            {% endif %}
+        >
+            Pending
+        </option>
+
+        <option
+            value="Confirmed"
+            {% if appointment.status == "Confirmed" %}
+                selected
+            {% endif %}
+        >
+            Confirmed
+        </option>
+
+        <option
+            value="Cancelled"
+            {% if appointment.status == "Cancelled" %}
+                selected
+            {% endif %}
+        >
+            Cancelled
+        </option>
+
+        <option
+            value="Completed"
+            {% if appointment.status == "Completed" %}
+                selected
+            {% endif %}
+        >
+            Completed
+        </option>
+
+    </select>
+
+    <br><br>
+
+
+    <button type="submit">
+        Save Changes
+    </button>
+
+</form>
+
+<br>
+
+<a href="{% url 'admin_dashboard' %}">
+    Back to Admin Dashboard
+</a>
+
+</body>
+
+</html>

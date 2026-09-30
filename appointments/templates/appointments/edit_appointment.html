@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Edit Appointment</title>
+
+</head>
+
+<body>
+
+<h1>Edit Appointment</h1>
+
+<h2>
+    Dr. {{ doctor.user.first_name }}
+    {{ doctor.user.last_name }}
+</h2>
+
+<p>
+    Specialization:
+    {{ doctor.specialization }}
+</p>
+
+<hr>
+
+<h2>Choose a New Date</h2>
+
+<form method="GET">
+
+    <input
+        type="date"
+        name="date"
+        value="{{ selected_date }}"
+        required
+    >
+
+    <button type="submit">
+        Check Availability
+    </button>
+
+</form>
+
+
+{% if selected_date %}
+
+    <hr>
+
+    <h2>Available Times</h2>
+
+    {% if available_slots %}
+
+        <form method="POST">
+
+            {% csrf_token %}
+
+            <input
+                type="hidden"
+                name="appointment_date"
+                value="{{ selected_date }}"
+            >
+
+            {% for slot in available_slots %}
+
+                <label>
+
+                    <input
+                        type="radio"
+                        name="appointment_time"
+                        value="{{ slot|time:'H:i' }}"
+                        {% if slot == appointment.appointment_time %}
+                            checked
+                        {% endif %}
+                        required
+                    >
+
+                    {{ slot|time:"H:i" }}
+
+                </label>
+
+                <br>
+
+            {% endfor %}
+
+            <br>
+
+            <h2>Reason</h2>
+
+            <textarea
+                name="reason"
+                rows="5"
+                cols="40"
+            >{{ appointment.reason }}</textarea>
+
+            <br><br>
+
+            <button type="submit">
+                Save Changes
+            </button>
+
+        </form>
+
+    {% else %}
+
+        <p>
+            No available appointment times for this date.
+        </p>
+
+    {% endif %}
+
+{% endif %}
+
+
+{% if error %}
+
+    <p style="color: red;">
+        {{ error }}
+    </p>
+
+{% endif %}
+
+
+<br>
+
+<a href="{% url 'patient_appointments' %}">
+    Back to My Appointments
+</a>
+
+</body>
+
+</html>

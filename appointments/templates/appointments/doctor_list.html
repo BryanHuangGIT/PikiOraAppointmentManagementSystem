@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Doctors</title>
+</head>
+
+<body>
+
+<h1>Available Doctors</h1>
+
+{% if doctors %}
+
+    {% for doctor in doctors %}
+
+        <div>
+            <h2>
+                Dr. {{ doctor.user.first_name }}
+                {{ doctor.user.last_name }}
+            </h2>
+
+            <p>
+                Specialization:
+                {{ doctor.specialization }}
+            </p>
+
+            <p>
+                Phone:
+                {{ doctor.phone }}
+            </p>
+
+            <a href="{% url 'book_appointment' doctor.id %}">
+                Book Appointment
+            </a>
+        </div>
+
+        <hr>
+
+    {% endfor %}
+
+{% else %}
+
+    <p>No approved doctors are currently available.</p>
+
+{% endif %}
+
+<br>
+
+<a href="{% url 'patient_dashboard' %}">
+    Back to Dashboard
+</a>
+
+</body>
+</html>

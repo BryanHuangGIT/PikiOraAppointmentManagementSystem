@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Appointments</title>
+</head>
+
+<body>
+
+{% if booking_success %}
+
+<script>
+    alert("{{ booking_success }}");
+</script>
+
+{% endif %}
+
+<h1>My Appointments</h1>
+
+{% if messages %}
+
+    {% for message in messages %}
+
+        <p style="color: green; font-weight: bold;">
+            {{ message }}
+        </p>
+
+    {% endfor %}
+
+{% endif %}
+
+{% if appointments %}
+
+    {% for appointment in appointments %}
+
+        <div>
+
+            <h2>
+                Dr. {{ appointment.doctor.user.first_name }}
+                {{ appointment.doctor.user.last_name }}
+            </h2>
+
+            <p>
+                Specialization:
+                {{ appointment.doctor.specialization }}
+            </p>
+
+            <p>
+                Date:
+                {{ appointment.appointment_date }}
+            </p>
+
+            <p>
+                Time:
+                {{ appointment.appointment_time }}
+            </p>
+
+            <p>
+                Reason:
+                {{ appointment.reason }}
+            </p>
+
+            <p>
+                Status:
+                <strong>{{ appointment.status }}</strong>
+            </p>
+
+            {% if appointment.status == "Pending" or appointment.status == "Confirmed" %}
+
+                <br>
+
+                <a href="{% url 'edit_appointment' appointment.id %}">
+                    Edit Appointment
+                </a>
+
+                <br><br>
+
+                <form
+                    method="POST"
+                    action="{% url 'patient_cancel_appointment' appointment.id %}"
+                >
+
+                    {% csrf_token %}
+
+                    <button type="submit">
+                        Cancel Appointment
+                    </button>
+
+                </form>
+
+            {% endif %}
+
+        </div>
+
+        <hr>
+
+    {% endfor %}
+
+{% else %}
+
+    <p>You don't have any appointments yet.</p>
+
+{% endif %}
+
+<br>
+
+<a href="{% url 'patient_dashboard' %}">
+    Back to Dashboard
+</a>
+
+</body>
+</html>

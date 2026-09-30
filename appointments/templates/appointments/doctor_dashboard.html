@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Doctor Dashboard</title>
+</head>
+
+<body>
+
+<h1>Doctor Dashboard</h1>
+
+<h2>
+    Welcome Dr. {{ user.first_name }} {{ user.last_name }}
+</h2>
+
+<p>Doctor account</p>
+
+<h2>Availability</h2>
+
+<a href="{% url 'doctor_availability' %}">
+    Manage My Availability
+</a>
+
+<br><br>
+
+<h2>Appointments</h2>
+
+<a href="{% url 'doctor_appointments' %}">
+    Manage My Appointments
+</a>
+
+<br><br>
+
+<a href="{% url 'logout' %}">
+    Logout
+</a>
+
+</body>
+</html>

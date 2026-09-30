@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Manage Availability</title>
+</head>
+
+<body>
+
+<h1>Manage Availability</h1>
+
+<p>
+    Set the dates and times when you are available
+    for appointments.
+</p>
+
+<a href="{% url 'add_availability' %}">
+    Add Availability
+</a>
+
+<br><br>
+
+{% if availabilities %}
+
+    {% for availability in availabilities %}
+
+        <div>
+
+            <h3>
+                {{ availability.date }}
+            </h3>
+
+            <p>
+                {{ availability.start_time }}
+                -
+                {{ availability.end_time }}
+            </p>
+
+            <a href="{% url 'delete_availability' availability.id %}">
+                Delete
+            </a>
+
+        </div>
+
+        <hr>
+
+    {% endfor %}
+
+{% else %}
+
+    <p>
+        You haven't added any availability yet.
+    </p>
+
+{% endif %}
+
+<br>
+
+<a href="{% url 'doctor_dashboard' %}">
+    Back to Dashboard
+</a>
+
+</body>
+</html>

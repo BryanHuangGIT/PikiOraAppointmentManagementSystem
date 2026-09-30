@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Doctor Registration</title>
+</head>
+
+<body>
+
+<h1>Doctor Registration</h1>
+
+<p>
+    Doctor accounts require administrator approval
+    before you can log in.
+</p>
+
+<form method="POST">
+
+    {% csrf_token %}
+
+    {{ form.as_p }}
+
+    <button type="submit">
+        Register
+    </button>
+
+</form>
+
+<br>
+
+<a href="{% url 'home' %}">
+    Back to Home
+</a>
+
+</body>
+</html>

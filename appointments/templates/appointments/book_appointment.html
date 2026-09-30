@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Book Appointment</title>
+</head>
+
+<body>
+
+<h1>Book Appointment</h1>
+
+<h2>
+    Dr. {{ doctor.user.first_name }}
+    {{ doctor.user.last_name }}
+</h2>
+
+<p>
+    Specialization: {{ doctor.specialization }}
+</p>
+
+<hr>
+
+<h2>1. Choose a Date</h2>
+
+<form method="GET">
+
+    <input
+        type="date"
+        name="date"
+        value="{{ selected_date|default:'' }}"
+        required
+    >
+
+    <button type="submit">
+        Check Availability
+    </button>
+
+</form>
+
+{% if selected_date %}
+
+    <hr>
+
+    <h2>2. Available Times</h2>
+
+    {% if available_slots %}
+
+        <form method="POST">
+
+            {% csrf_token %}
+
+            <input
+                type="hidden"
+                name="appointment_date"
+                value="{{ selected_date }}"
+            >
+
+            {% for slot in available_slots %}
+
+                <label>
+                    <input
+                        type="radio"
+                        name="appointment_time"
+                        value="{{ slot|time:'H:i' }}"
+                        required
+                    >
+
+                    {{ slot|time:"H:i" }}
+                </label>
+
+                <br>
+
+            {% endfor %}
+
+            <br>
+
+            <h2>3. Reason for Appointment</h2>
+
+            <textarea
+                name="reason"
+                rows="5"
+                cols="40"
+                placeholder="Enter the reason for your appointment"
+            ></textarea>
+
+            <br><br>
+
+            <button type="submit">
+                Book Appointment
+            </button>
+
+        </form>
+
+    {% else %}
+
+        <p>
+            <strong>
+                No available appointment times for this date.
+            </strong>
+        </p>
+
+        <p>
+            Please choose another date.
+        </p>
+
+    {% endif %}
+
+{% endif %}
+
+{% if error %}
+
+    <p style="color: red;">
+        {{ error }}
+    </p>
+
+{% endif %}
+
+<br>
+
+<a href="{% url 'doctors_list' %}">
+    Back to Doctors
+</a>
+
+</body>
+</html>

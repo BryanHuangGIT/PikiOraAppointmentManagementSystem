@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Add Availability</title>
+</head>
+
+<body>
+
+<h1>Add Availability</h1>
+
+<form method="POST">
+
+    {% csrf_token %}
+
+    <label>Date:</label>
+    <br>
+
+    <input
+        type="date"
+        name="date"
+        required
+    >
+
+    <br><br>
+
+    <label>Start Time:</label>
+    <br>
+
+    <input
+        type="time"
+        name="start_time"
+        required
+    >
+
+    <br><br>
+
+    <label>End Time:</label>
+    <br>
+
+    <input
+        type="time"
+        name="end_time"
+        required
+    >
+
+    <br><br>
+
+    <button type="submit">
+        Add Availability
+    </button>
+
+</form>
+
+<br>
+
+<a href="{% url 'doctor_availability' %}">
+    Back to Availability
+</a>
+
+</body>
+</html>

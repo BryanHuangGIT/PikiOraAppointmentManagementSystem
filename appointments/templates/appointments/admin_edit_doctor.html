@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Edit Doctor</title>
+</head>
+
+<body>
+
+<h1>Edit Doctor</h1>
+
+<form method="POST">
+
+    {% csrf_token %}
+
+    <label>Username:</label>
+    <br>
+
+    <input
+        type="text"
+        value="{{ doctor.user.username }}"
+        disabled
+    >
+
+    <br><br>
+
+    <label>First Name:</label>
+    <br>
+
+    <input
+        type="text"
+        name="first_name"
+        value="{{ doctor.user.first_name }}"
+        required
+    >
+
+    <br><br>
+
+    <label>Last Name:</label>
+    <br>
+
+    <input
+        type="text"
+        name="last_name"
+        value="{{ doctor.user.last_name }}"
+        required
+    >
+
+    <br><br>
+
+    <label>Email:</label>
+    <br>
+
+    <input
+        type="email"
+        name="email"
+        value="{{ doctor.user.email }}"
+        required
+    >
+
+    <br><br>
+
+    <label>Specialization:</label>
+    <br>
+
+    <input
+        type="text"
+        name="specialization"
+        value="{{ doctor.specialization }}"
+        required
+    >
+
+    <br><br>
+
+    <label>Phone:</label>
+    <br>
+
+    <input
+        type="text"
+        name="phone"
+        value="{{ doctor.phone }}"
+        required
+    >
+
+    <br><br>
+
+    <label>
+
+        <input
+            type="checkbox"
+            name="approved"
+            {% if doctor.approved %}
+                checked
+            {% endif %}
+        >
+
+        Approved
+
+    </label>
+
+    <br><br>
+
+    <button type="submit">
+        Save Changes
+    </button>
+
+</form>
+
+<br>
+
+<a href="{% url 'admin_dashboard' %}">
+    Back to Admin Dashboard
+</a>
+
+</body>
+
+</html>
+```

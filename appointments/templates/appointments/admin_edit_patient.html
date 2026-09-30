@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Edit Patient</title>
+</head>
+
+<body>
+
+<h1>Edit Patient</h1>
+
+<form method="POST">
+
+    {% csrf_token %}
+
+    <label>Username:</label>
+    <br>
+
+    <input
+        type="text"
+        value="{{ patient.user.username }}"
+        disabled
+    >
+
+    <br><br>
+
+    <label>First Name:</label>
+    <br>
+
+    <input
+        type="text"
+        name="first_name"
+        value="{{ patient.user.first_name }}"
+        required
+    >
+
+    <br><br>
+
+    <label>Last Name:</label>
+    <br>
+
+    <input
+        type="text"
+        name="last_name"
+        value="{{ patient.user.last_name }}"
+        required
+    >
+
+    <br><br>
+
+    <label>Email:</label>
+    <br>
+
+    <input
+        type="email"
+        name="email"
+        value="{{ patient.user.email }}"
+        required
+    >
+
+    <br><br>
+
+    <label>Phone:</label>
+    <br>
+
+    <input
+        type="text"
+        name="phone"
+        value="{{ patient.phone }}"
+        required
+    >
+
+    <br><br>
+
+    <label>Date of Birth:</label>
+    <br>
+
+    <input
+        type="date"
+        name="date_of_birth"
+        value="{{ patient.date_of_birth|date:'Y-m-d' }}"
+    >
+
+    <br><br>
+
+    <button type="submit">
+        Save Changes
+    </button>
+
+</form>
+
+<br>
+
+<a href="{% url 'admin_dashboard' %}">
+    Back to Admin Dashboard
+</a>
+
+</body>
+
+</html>
