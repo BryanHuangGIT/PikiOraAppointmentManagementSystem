@@ -1,15 +1,12 @@
 
 from datetime import datetime, timedelta
 
-from django.contrib.auth.models import User
 from django.db import transaction
 from django.utils import timezone
+from django.shortcuts import get_object_or_404
 
 from rest_framework import generics, permissions, status
-from rest_framework.exceptions import (
-    PermissionDenied,
-    ValidationError
-)
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -19,7 +16,6 @@ from .serializers import (
     PatientSerializer,
     AvailabilitySerializer,
     AppointmentSerializer,
-    UserSerializer
 )
 
 
@@ -28,6 +24,10 @@ from .serializers import (
 # ==========================================
 
 class IsAdministrator(permissions.BasePermission):
+    """
+    Only Django staff users can access administrator APIs.
+    """
+
     def has_permission(self, request, view):
         return (
             request.user.is_authenticated
@@ -46,7 +46,9 @@ class DoctorListAPIView(generics.ListAPIView):
     def get_queryset(self):
         return Doctor.objects.filter(
             approved=True
-        ).select_related("user")
+        ).select_related("user").order_by(
+            "user__first_name", "user__last_name"
+        )
 
 
 class DoctorDetailAPIView(generics.RetrieveAPIView):
@@ -76,9 +78,18 @@ class AvailabilityListAPIView(generics.ListAPIView):
         doctor_id = self.request.query_params.get("doctor")
 
         if doctor_id:
-            queryset = queryset.filter(doctor_id=doctor_id)
+            if not doctor_id.isdigit():
+                raise ValidationError({
+                    "doctor": "A valid doctor ID is required."
+                })
 
-        return queryset.order_by("date", "start_time")
+            queryset = queryset.filter(
+                doctor_id=int(doctor_id)
+            )
+
+        return queryset.order_by(
+            "date", "start_time"
+        )
 
 
 # ==========================================
@@ -91,9 +102,10 @@ class PatientProfileAPIView(generics.RetrieveAPIView):
 
     def get_object(self):
         try:
-            return Patient.objects.select_related("user").get(
-                user=self.request.user
-            )
+            return Patient.objects.select_related(
+                "user"
+            ).get(user=self.request.user)
+
         except Patient.DoesNotExist:
             raise PermissionDenied(
                 "This account does not have a patient profile."
@@ -105,6 +117,14 @@ class PatientProfileAPIView(generics.RetrieveAPIView):
 # ==========================================
 
 def validate_appointment(data, instance=None):
+    """
+    Validates:
+    1. Doctor approval
+    2. Date and time
+    3. 30-minute appointment slots
+    4. Doctor availability
+    5. Double booking
+    """
 
     doctor = data.get(
         "doctor",
@@ -128,7 +148,7 @@ def validate_appointment(data, instance=None):
 
     if not doctor.approved:
         raise ValidationError(
-            "This doctor is not approved."
+            "This doctor has not been approved."
         )
 
     today = timezone.localdate()
@@ -136,29 +156,33 @@ def validate_appointment(data, instance=None):
 
     if appointment_date < today:
         raise ValidationError(
-            "You cannot book an appointment in the past."
+            "Appointments cannot be booked in the past."
         )
 
     if appointment_date == today:
-        if appointment_time <= now.time().replace(tzinfo=None):
+        current_time = now.time().replace(tzinfo=None)
+
+        if appointment_time <= current_time:
             raise ValidationError(
                 "You cannot book a past appointment time."
             )
 
-    # Appointment times must be aligned to 30-minute slots.
-    if appointment_time.minute not in (0, 30):
+    # Appointment must start at :00 or :30
+    if (
+        appointment_time.minute not in (0, 30)
+        or appointment_time.second != 0
+        or appointment_time.microsecond != 0
+    ):
         raise ValidationError(
-            "Appointments must start at 00 or 30 minutes."
+            "Appointments must start on a 30-minute interval."
         )
 
-    if appointment_time.second or appointment_time.microsecond:
-        raise ValidationError(
-            "Appointment times must not include seconds."
-        )
-
+    # Calculate appointment ending time
     appointment_end = (
-        datetime.combine(appointment_date, appointment_time)
-        + timedelta(minutes=30)
+        datetime.combine(
+            appointment_date,
+            appointment_time
+        ) + timedelta(minutes=30)
     ).time()
 
     if appointment_end <= appointment_time:
@@ -166,7 +190,7 @@ def validate_appointment(data, instance=None):
             "Invalid appointment time."
         )
 
-    # Check doctor's availability.
+    # Check doctor availability
     availability_exists = Availability.objects.filter(
         doctor=doctor,
         date=appointment_date,
@@ -176,10 +200,10 @@ def validate_appointment(data, instance=None):
 
     if not availability_exists:
         raise ValidationError(
-            "The doctor is not available at this time."
+            "The doctor is unavailable at the selected time."
         )
 
-    # Check existing active appointments.
+    # Prevent double booking
     existing_bookings = Appointment.objects.filter(
         doctor=doctor,
         appointment_date=appointment_date,
@@ -187,14 +211,14 @@ def validate_appointment(data, instance=None):
         status__in=["Pending", "Confirmed"]
     )
 
-    if instance:
+    if instance is not None:
         existing_bookings = existing_bookings.exclude(
             pk=instance.pk
         )
 
     if existing_bookings.exists():
         raise ValidationError(
-            "This appointment slot is already booked."
+            "This appointment slot has already been booked."
         )
 
 
@@ -209,16 +233,23 @@ class AppointmentListCreateAPIView(
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        if self.request.user.is_staff:
-            return Appointment.objects.select_related(
-                "patient__user", "doctor__user"
-            ).order_by("-appointment_date", "-appointment_time")
+        queryset = Appointment.objects.select_related(
+            "patient__user",
+            "doctor__user"
+        )
 
-        return Appointment.objects.filter(
+        if self.request.user.is_staff:
+            return queryset.order_by(
+                "-appointment_date",
+                "-appointment_time"
+            )
+
+        return queryset.filter(
             patient__user=self.request.user
-        ).select_related(
-            "patient__user", "doctor__user"
-        ).order_by("-appointment_date", "-appointment_time")
+        ).order_by(
+            "-appointment_date",
+            "-appointment_time"
+        )
 
     def perform_create(self, serializer):
         try:
@@ -233,11 +264,19 @@ class AppointmentListCreateAPIView(
         with transaction.atomic():
             doctor = serializer.validated_data.get("doctor")
 
-            # Serialize booking operations for this doctor
-            # on databases supporting row-level locks.
-            Doctor.objects.select_for_update().get(pk=doctor.pk)
+            if doctor is None:
+                raise ValidationError({
+                    "doctor": "Doctor is required."
+                })
 
-            validate_appointment(serializer.validated_data)
+            # Lock doctor row where supported
+            Doctor.objects.select_for_update().get(
+                pk=doctor.pk
+            )
+
+            validate_appointment(
+                serializer.validated_data
+            )
 
             serializer.save(
                 patient=patient,
@@ -252,10 +291,15 @@ class AppointmentDetailAPIView(
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        if self.request.user.is_staff:
-            return Appointment.objects.all()
+        queryset = Appointment.objects.select_related(
+            "patient__user",
+            "doctor__user"
+        )
 
-        return Appointment.objects.filter(
+        if self.request.user.is_staff:
+            return queryset
+
+        return queryset.filter(
             patient__user=self.request.user
         )
 
@@ -263,12 +307,14 @@ class AppointmentDetailAPIView(
         with transaction.atomic():
             appointment = self.get_object()
 
-            if appointment.status in ["Cancelled", "Completed"]:
+            if appointment.status in [
+                "Cancelled", "Completed"
+            ]:
                 raise ValidationError(
-                    "This appointment can no longer be edited."
+                    "This appointment cannot be edited."
                 )
 
-            if serializer.validated_data.get("status") is not None:
+            if "status" in serializer.validated_data:
                 raise ValidationError(
                     "Use the cancellation endpoint to cancel an appointment."
                 )
@@ -277,7 +323,9 @@ class AppointmentDetailAPIView(
                 "doctor", appointment.doctor
             )
 
-            Doctor.objects.select_for_update().get(pk=doctor.pk)
+            Doctor.objects.select_for_update().get(
+                pk=doctor.pk
+            )
 
             validate_appointment(
                 serializer.validated_data,
@@ -286,6 +334,10 @@ class AppointmentDetailAPIView(
 
             serializer.save()
 
+
+# ==========================================
+# CANCEL APPOINTMENT
+# ==========================================
 
 class AppointmentCancelAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -299,27 +351,31 @@ class AppointmentCancelAPIView(APIView):
                     patient__user=request.user
                 )
 
-            appointment = queryset.filter(pk=pk).first()
-
-            if not appointment:
-                return Response(
-                    {"error": "Appointment not found."},
-                    status=status.HTTP_404_NOT_FOUND
-                )
+            appointment = get_object_or_404(
+                queryset,
+                pk=pk
+            )
 
             if appointment.status == "Completed":
                 return Response(
-                    {"error": "Completed appointments cannot be cancelled."},
+                    {
+                        "error": (
+                            "Completed appointments "
+                            "cannot be cancelled."
+                        )
+                    },
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
             if appointment.status == "Cancelled":
-                return Response(
-                    {"message": "Appointment is already cancelled."}
-                )
+                return Response({
+                    "message": "Appointment is already cancelled."
+                })
 
             appointment.status = "Cancelled"
-            appointment.save(update_fields=["status"])
+            appointment.save(
+                update_fields=["status"]
+            )
 
         return Response({
             "message": "Appointment cancelled successfully."
@@ -335,11 +391,14 @@ class AdminDoctorListCreateAPIView(
 ):
     serializer_class = DoctorSerializer
     permission_classes = [IsAdministrator]
-    queryset = Doctor.objects.select_related("user").all()
+
+    queryset = Doctor.objects.select_related(
+        "user"
+    ).all()
 
     def perform_create(self, serializer):
         raise ValidationError(
-            "Doctor creation requires an associated user account. "
+            "Doctor creation requires a linked user account. "
             "Use the doctor registration workflow."
         )
 
@@ -349,7 +408,10 @@ class AdminDoctorDetailAPIView(
 ):
     serializer_class = DoctorSerializer
     permission_classes = [IsAdministrator]
-    queryset = Doctor.objects.all()
+
+    queryset = Doctor.objects.select_related(
+        "user"
+    ).all()
 
 
 # ==========================================
@@ -361,10 +423,10 @@ class AdminAvailabilityListCreateAPIView(
 ):
     serializer_class = AvailabilitySerializer
     permission_classes = [IsAdministrator]
-    queryset = Availability.objects.all()
 
-    def perform_create(self, serializer):
-        serializer.save()
+    queryset = Availability.objects.select_related(
+        "doctor__user"
+    ).all()
 
 
 class AdminAvailabilityDetailAPIView(
@@ -372,17 +434,25 @@ class AdminAvailabilityDetailAPIView(
 ):
     serializer_class = AvailabilitySerializer
     permission_classes = [IsAdministrator]
-    queryset = Availability.objects.all()
+
+    queryset = Availability.objects.select_related(
+        "doctor__user"
+    ).all()
 
 
 # ==========================================
 # ADMINISTRATOR - PATIENTS
 # ==========================================
 
-class AdminPatientListAPIView(generics.ListAPIView):
+class AdminPatientListAPIView(
+    generics.ListAPIView
+):
     serializer_class = PatientSerializer
     permission_classes = [IsAdministrator]
-    queryset = Patient.objects.select_related("user").all()
+
+    queryset = Patient.objects.select_related(
+        "user"
+    ).all()
 
 
 class AdminPatientDetailAPIView(
@@ -390,18 +460,25 @@ class AdminPatientDetailAPIView(
 ):
     serializer_class = PatientSerializer
     permission_classes = [IsAdministrator]
-    queryset = Patient.objects.all()
+
+    queryset = Patient.objects.select_related(
+        "user"
+    ).all()
 
 
 # ==========================================
 # ADMINISTRATOR - APPOINTMENTS
 # ==========================================
 
-class AdminAppointmentListAPIView(generics.ListAPIView):
+class AdminAppointmentListAPIView(
+    generics.ListAPIView
+):
     serializer_class = AppointmentSerializer
     permission_classes = [IsAdministrator]
+
     queryset = Appointment.objects.select_related(
-        "patient__user", "doctor__user"
+        "patient__user",
+        "doctor__user"
     ).all()
 
 
@@ -425,15 +502,10 @@ class AdminAppointmentStatusAPIView(APIView):
             )
 
         with transaction.atomic():
-            appointment = Appointment.objects.select_for_update().filter(
+            appointment = get_object_or_404(
+                Appointment.objects.select_for_update(),
                 pk=pk
-            ).first()
-
-            if not appointment:
-                return Response(
-                    {"error": "Appointment not found."},
-                    status=status.HTTP_404_NOT_FOUND
-                )
+            )
 
             if new_status in ["Pending", "Confirmed"]:
                 Doctor.objects.select_for_update().get(
@@ -444,13 +516,15 @@ class AdminAppointmentStatusAPIView(APIView):
                     {
                         "doctor": appointment.doctor,
                         "appointment_date": appointment.appointment_date,
-                        "appointment_time": appointment.appointment_time
+                        "appointment_time": appointment.appointment_time,
                     },
                     instance=appointment
                 )
 
             appointment.status = new_status
-            appointment.save(update_fields=["status"])
+            appointment.save(
+                update_fields=["status"]
+            )
 
         return Response({
             "message": "Appointment status updated successfully.",
