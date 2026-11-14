@@ -25,6 +25,8 @@ from .api_views import (
     AdminPatientDetailAPIView,
     AdminAppointmentListAPIView,
     AdminAppointmentStatusAPIView,
+    DoctorAvailableSlotsAPIView,
+    DoctorAppointmentsAPIView
 )
 
 
@@ -177,5 +179,15 @@ urlpatterns = [
         "admin/appointments/<int:pk>/status/",
         AdminAppointmentStatusAPIView.as_view(),
         name="api-admin-appointment-status"
+    ),
+    path(
+        "doctors/<int:doctor_id>/slots/",
+        DoctorAvailableSlotsAPIView.as_view(),
+        name="doctor-available-slots"
+    ),
+    path(
+        "doctor/appointments/",
+        DoctorAppointmentsAPIView.as_view(),
+        name="doctor-appointments"
     ),
 ]

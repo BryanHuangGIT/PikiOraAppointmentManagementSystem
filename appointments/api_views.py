@@ -1,5 +1,10 @@
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
+from .scheduling import (
+    get_available_slots,
+    is_valid_slot,
+    is_future_slot,
+)
 
 from django.db import transaction
 from django.utils import timezone
@@ -92,6 +97,50 @@ class AvailabilityListAPIView(generics.ListAPIView):
         )
 
 
+class DoctorAvailableSlotsAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, doctor_id):
+        doctor = get_object_or_404(
+            Doctor,
+            pk=doctor_id,
+            approved=True
+        )
+
+        requested_date = request.query_params.get(
+            "date"
+        )
+
+        if not requested_date:
+            return Response(
+                {"error": "Date is required (YYYY-MM-DD)."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            selected_date = date.fromisoformat(
+                requested_date
+            )
+        except ValueError:
+            return Response(
+                {"error": "Invalid date format."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        slots = get_available_slots(
+            doctor,
+            selected_date
+        )
+
+        return Response({
+            "doctor": doctor.id,
+            "date": selected_date.isoformat(),
+            "slot_duration_minutes": 30,
+            "available_slots": slots
+        })
+
+
+
 # ==========================================
 # PATIENT PROFILE API
 # ==========================================
@@ -116,16 +165,8 @@ class PatientProfileAPIView(generics.RetrieveAPIView):
 # APPOINTMENT VALIDATION
 # ==========================================
 
-def validate_appointment(data, instance=None):
-    """
-    Validates:
-    1. Doctor approval
-    2. Date and time
-    3. 30-minute appointment slots
-    4. Doctor availability
-    5. Double booking
-    """
 
+def validate_appointment(data, instance=None):
     doctor = data.get(
         "doctor",
         instance.doctor if instance else None
@@ -141,7 +182,11 @@ def validate_appointment(data, instance=None):
         instance.appointment_time if instance else None
     )
 
-    if not doctor or not appointment_date or not appointment_time:
+    if not all([
+        doctor,
+        appointment_date,
+        appointment_time
+    ]):
         raise ValidationError(
             "Doctor, appointment date and time are required."
         )
@@ -151,59 +196,25 @@ def validate_appointment(data, instance=None):
             "This doctor has not been approved."
         )
 
-    today = timezone.localdate()
-    now = timezone.localtime()
-
-    if appointment_date < today:
-        raise ValidationError(
-            "Appointments cannot be booked in the past."
-        )
-
-    if appointment_date == today:
-        current_time = now.time().replace(tzinfo=None)
-
-        if appointment_time <= current_time:
-            raise ValidationError(
-                "You cannot book a past appointment time."
-            )
-
-    # Appointment must start at :00 or :30
-    if (
-        appointment_time.minute not in (0, 30)
-        or appointment_time.second != 0
-        or appointment_time.microsecond != 0
+    if not is_valid_slot(
+        appointment_date,
+        appointment_time
     ):
         raise ValidationError(
-            "Appointments must start on a 30-minute interval."
+            "Appointments must be Monday to Friday, "
+            "between 9:00 AM and 5:00 PM, "
+            "in 30-minute slots, "
+            "and within the next 30 days."
         )
 
-    # Calculate appointment ending time
-    appointment_end = (
-        datetime.combine(
-            appointment_date,
-            appointment_time
-        ) + timedelta(minutes=30)
-    ).time()
-
-    if appointment_end <= appointment_time:
+    if not is_future_slot(
+        appointment_date,
+        appointment_time
+    ):
         raise ValidationError(
-            "Invalid appointment time."
+            "Cannot book an appointment in the past."
         )
 
-    # Check doctor availability
-    availability_exists = Availability.objects.filter(
-        doctor=doctor,
-        date=appointment_date,
-        start_time__lte=appointment_time,
-        end_time__gte=appointment_end
-    ).exists()
-
-    if not availability_exists:
-        raise ValidationError(
-            "The doctor is unavailable at the selected time."
-        )
-
-    # Prevent double booking
     existing_bookings = Appointment.objects.filter(
         doctor=doctor,
         appointment_date=appointment_date,
@@ -220,6 +231,7 @@ def validate_appointment(data, instance=None):
         raise ValidationError(
             "This appointment slot has already been booked."
         )
+
 
 
 # ==========================================
@@ -530,3 +542,43 @@ class AdminAppointmentStatusAPIView(APIView):
             "message": "Appointment status updated successfully.",
             "status": appointment.status
         })
+
+# ==========================================
+# DOCTOR - APPOINTMENTS
+# ==========================================
+
+class DoctorAppointmentsAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        try:
+            doctor = Doctor.objects.select_related("user").get(
+                user=request.user,
+                approved=True
+            )
+        except Doctor.DoesNotExist:
+            return Response(
+                {"detail": "Approved doctor account not found."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        appointments = Appointment.objects.filter(
+            doctor=doctor
+        ).select_related(
+            "patient__user",
+            "doctor__user"
+        ).order_by(
+            "appointment_date",
+            "appointment_time"
+        )
+
+        serializer = AppointmentSerializer(
+            appointments,
+            many=True
+        )
+
+        return Response({
+            "doctor_name": doctor.user.get_full_name(),
+            "appointments": serializer.data
+        })
+
