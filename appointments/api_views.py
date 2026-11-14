@@ -582,3 +582,112 @@ class DoctorAppointmentsAPIView(APIView):
             "appointments": serializer.data
         })
 
+# ==========================================
+# DOCTOR - UPDATE APPOINTMENT STATUS
+# ==========================================
+
+class DoctorAppointmentStatusAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def patch(self, request, pk):
+        new_status = request.data.get("status")
+
+        if new_status not in ["Confirmed", "Completed"]:
+            return Response(
+                {
+                    "error": (
+                        "Doctors can only confirm or complete "
+                        "appointments."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            doctor = Doctor.objects.get(
+                user=request.user,
+                approved=True
+            )
+        except Doctor.DoesNotExist:
+            return Response(
+                {"error": "Approved doctor account required."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        with transaction.atomic():
+            appointment = get_object_or_404(
+                Appointment.objects.select_for_update(),
+                pk=pk,
+                doctor=doctor
+            )
+
+            current_status = appointment.status
+
+            if new_status == "Confirmed":
+                if current_status != "Pending":
+                    return Response(
+                        {
+                            "error": (
+                                "Only pending appointments "
+                                "can be confirmed."
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                if not is_future_slot(
+                    appointment.appointment_date,
+                    appointment.appointment_time
+                ):
+                    return Response(
+                        {
+                            "error": (
+                                "Past appointments cannot "
+                                "be confirmed."
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            elif new_status == "Completed":
+                if current_status != "Confirmed":
+                    return Response(
+                        {
+                            "error": (
+                                "Only confirmed appointments "
+                                "can be completed."
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                appointment_start = timezone.make_aware(
+                    datetime.combine(
+                        appointment.appointment_date,
+                        appointment.appointment_time
+                    ),
+                    timezone.get_current_timezone()
+                )
+
+                if appointment_start > timezone.now():
+                    return Response(
+                        {
+                            "error": (
+                                "A consultation cannot be "
+                                "completed before it starts."
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            appointment.status = new_status
+            appointment.save(update_fields=["status"])
+
+        return Response({
+            "message": (
+                "Appointment status updated successfully."
+            ),
+            "appointment_id": appointment.id,
+            "status": appointment.status
+        })
+
