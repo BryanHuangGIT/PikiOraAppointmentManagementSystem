@@ -1,4 +1,6 @@
+
 from django.urls import path
+from rest_framework.permissions import IsAdminUser
 
 # Authentication views
 from .auth_views import (
@@ -27,7 +29,7 @@ from .api_views import (
     AdminAppointmentStatusAPIView,
     DoctorAvailableSlotsAPIView,
     DoctorAppointmentsAPIView,
-    DoctorAppointmentStatusAPIView
+    DoctorAppointmentStatusAPIView,
 )
 
 
@@ -60,6 +62,7 @@ urlpatterns = [
         LogoutAPIView.as_view(),
         name="api-logout"
     ),
+
     # ==========================================
     # DOCTORS
     # ==========================================
@@ -74,6 +77,28 @@ urlpatterns = [
         "doctors/<int:pk>/",
         DoctorDetailAPIView.as_view(),
         name="api-doctor-detail"
+    ),
+
+    path(
+        "doctors/<int:doctor_id>/slots/",
+        DoctorAvailableSlotsAPIView.as_view(),
+        name="doctor-available-slots"
+    ),
+
+    # ==========================================
+    # DOCTOR DASHBOARD
+    # ==========================================
+
+    path(
+        "doctor/appointments/",
+        DoctorAppointmentsAPIView.as_view(),
+        name="doctor-appointments"
+    ),
+
+    path(
+        "doctor/appointments/<int:pk>/status/",
+        DoctorAppointmentStatusAPIView.as_view(),
+        name="doctor-appointment-status"
     ),
 
     # ==========================================
@@ -97,7 +122,7 @@ urlpatterns = [
     ),
 
     # ==========================================
-    # APPOINTMENTS
+    # PATIENT APPOINTMENTS
     # ==========================================
 
     path(
@@ -119,7 +144,7 @@ urlpatterns = [
     ),
 
     # ==========================================
-    # ADMIN - DOCTORS
+    # ADMINISTRATOR - DOCTOR MANAGEMENT
     # ==========================================
 
     path(
@@ -135,7 +160,7 @@ urlpatterns = [
     ),
 
     # ==========================================
-    # ADMIN - AVAILABILITY
+    # ADMINISTRATOR - AVAILABILITY MANAGEMENT
     # ==========================================
 
     path(
@@ -151,7 +176,7 @@ urlpatterns = [
     ),
 
     # ==========================================
-    # ADMIN - PATIENTS
+    # ADMINISTRATOR - PATIENT MANAGEMENT
     # ==========================================
 
     path(
@@ -167,7 +192,7 @@ urlpatterns = [
     ),
 
     # ==========================================
-    # ADMIN - APPOINTMENTS
+    # ADMINISTRATOR - APPOINTMENT MANAGEMENT
     # ==========================================
 
     path(
@@ -177,23 +202,24 @@ urlpatterns = [
     ),
 
     path(
+        "admin/appointments/<int:pk>/",
+        AppointmentDetailAPIView.as_view(
+            permission_classes=[IsAdminUser]
+        ),
+        name="api-admin-appointment-detail"
+    ),
+
+    path(
+        "admin/appointments/<int:pk>/cancel/",
+        AppointmentCancelAPIView.as_view(
+            permission_classes=[IsAdminUser]
+        ),
+        name="api-admin-appointment-cancel"
+    ),
+
+    path(
         "admin/appointments/<int:pk>/status/",
         AdminAppointmentStatusAPIView.as_view(),
         name="api-admin-appointment-status"
-    ),
-    path(
-        "doctors/<int:doctor_id>/slots/",
-        DoctorAvailableSlotsAPIView.as_view(),
-        name="doctor-available-slots"
-    ),
-    path(
-        "doctor/appointments/",
-        DoctorAppointmentsAPIView.as_view(),
-        name="doctor-appointments"
-    ),
-    path(
-        "doctor/appointments/<int:pk>/status/",
-        DoctorAppointmentStatusAPIView.as_view(),
-        name="doctor-appointment-status"
     ),
 ]
