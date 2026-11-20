@@ -1,7 +1,6 @@
 
 import os
 from pathlib import Path
-from urllib.parse import urlparse
 
 import dj_database_url
 
@@ -35,7 +34,10 @@ ALLOWED_HOSTS = [
 CSRF_TRUSTED_ORIGINS = [
     origin.strip()
     for origin in os.environ.get(
-        "CSRF_TRUSTED_ORIGINS", ""
+        "CSRF_TRUSTED_ORIGINS",
+        "http://localhost:3000,"
+        "http://127.0.0.1:3000,"
+        "https://pikiora-react-frontend.onrender.com",
     ).split(",")
     if origin.strip()
 ]
@@ -81,17 +83,9 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                "django.contrib.messages.context_processors",
             ],
         },
     },
-]
-
-# Remove duplicate or invalid context processor entries.
-TEMPLATES[0]["OPTIONS"]["context_processors"] = [
-    "django.template.context_processors.request",
-    "django.contrib.auth.context_processors.auth",
-    "django.contrib.messages.context_processors.messages",
 ]
 
 WSGI_APPLICATION = (
@@ -171,13 +165,15 @@ REST_FRAMEWORK = {
 }
 
 # =========================================================
-# CORS
+# CORS - LOCAL REACT + RENDER REACT
 # =========================================================
 
 CORS_ALLOWED_ORIGINS = [
     origin.strip()
     for origin in os.environ.get(
         "CORS_ALLOWED_ORIGINS",
+        "http://localhost:3000,"
+        "http://127.0.0.1:3000,"
         "https://pikiora-react-frontend.onrender.com",
     ).split(",")
     if origin.strip()
